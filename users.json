@@ -1,0 +1,110 @@
+[
+  {
+    "username": "Ramal",
+    "email": "123@gmail.com",
+    "password": "$2b$10$DcBvZoN319NR.ywZJKzHUeAl.QUuO7YEKmsCAhtjwsCy7riEXTDIa",
+    "role": "user"
+  },
+  {
+    "username": "Ramall",
+    "email": "123@gmail.comm",
+    "password": "$2b$10$Tln8o5SAYsZwpIwkDfH44OoXhxDruzd7EAdxdObOqPpNb3toC9vUi",
+    "role": "user"
+  },
+  {
+    "username": "RamalA",
+    "email": "ramalesgerov@icloud.com",
+    "password": "$2b$10$2Hd3iUNpMCnKfC/z7TkzZutSSbML86Pfz7OIag6eaOv4L6E1wADD6",
+    "role": "user"
+  },
+  {
+    "username": "ramal",
+    "email": "ramalesgerov@icloud.coma",
+    "password": "$2b$10$xD4/hPC47.DfaP4MalljVuNbhrPibB1W1NkeUq1NC/PgNGeRWzluO",
+    "role": "user"
+  },
+  {
+    "username": "Ramalc",
+    "email": "122@gma.com",
+    "password": "$2b$10$92Lh/fOqbHk8qfy7Jis3ROFSQcMFu8EE/qZaaV6wy70.umwe.xjgq",
+    "role": "user"
+  },
+  {
+    "username": "Ramal1",
+    "email": "ramalesgerov@icloud.com1",
+    "password": "$2b$10$OY5HZkgHLRr0UXE9j5b3ZeGk.Ui.MjiDHubxYTkOBn4VOInpHwLCe",
+    "role": "user"
+  },
+  {
+    "username": "ramala",
+    "email": "122@gma.com1",
+    "password": "$2b$10$UiTnWQ8GrohrDyuwaf5QNuxPrUzu20YzxIe5Ucrw0BiuOFknwWjYy",
+    "role": "user"
+  },
+  {
+    "username": "ramalsss",
+    "email": "ramalesgerov@icloud.comss",
+    "password": "$2b$10$92vUaLjk5.NMD5SACKoKpOLp5t76Ua.hzMUi/2TE2K5SYaT3jsvy6",
+    "role": "user"
+  },
+  {
+    "username": "ramalddd",
+    "email": "ramalesgerov@icloud.cosmss",
+    "password": "$2b$10$XQUyV2IT.u7pZJNwg3sx9uAelJLiG2BroIrAPHd3KK2JFQ4uRZ/ia",
+    "role": "user"
+  },
+  {
+    "username": "ramalssssss",
+    "email": "ramalesgerov@icloud.comsssasaa",
+    "password": "$2b$10$o4yiFZ5LlBpdq5H3VYlp6OonAqgbMbmFGB1Nwl9eWmVKskBXzFjFW",
+    "role": "user"
+  },
+  {
+    "username": "Samir",
+    "email": "123@dmd.com",
+    "password": "$2b$10$kAFqc0b7SFV3ieb3TG6fouPxQWR63DF967nuZwmqV3KZitRl8vZCe",
+    "role": "user"
+  },
+  {
+    "username": "Ramals",
+    "email": "ramalesgerov@icloud.cosm",
+    "password": "$2b$10$r4cBdTcAv3TXFkwMbdynZeRvcXgtOHplmdAfUSYfEmtFXR6oEgDmy",
+    "role": "user"
+  },
+  {
+    "username": "Ramala",
+    "email": "ramalesagerov@icloud.com",
+    "password": "$2b$10$UDAAdPi7ShjlGmYW8xfeWeE.xHm1oIzb5QormL/Bb6oQ2jQo9B3QK",
+    "role": "user"
+  },
+  {
+    "username": "Ramalsss",
+    "email": "ramalesgersov@icloud.com",
+    "password": "$2b$10$TwObKFNtGU5ruNjjaBrIoeFo2Fv8qgQn92zXRAnaiU6xBT9f4BJqG",
+    "role": "user"
+  },
+  {
+    "username": "ramal.asgarov",
+    "email": "123@gmail.coms",
+    "password": "$2b$10$ER8x86FGRbOl7QT2.2RYfuQpvivmJ0HheekN3lO2I1oKyM0NTc636",
+    "role": "user"
+  },
+  {
+    "username": "ramal.asgarovss",
+    "email": "123@gmail.comddd",
+    "password": "$2b$10$eQs6HikIT29aeuMCdSv9KuouRAH/ma/OxTWySFrsVQYA8h3Z8On5S",
+    "role": "user"
+  },
+  {
+    "username": "ramal.asgarovssss",
+    "email": "123@gmail.comdddsd",
+    "password": "$2b$10$kFskObbkVYAjgML3j7G7rehnldt9UW6W6lzbtzdYUh3y5/KMVWGyy",
+    "role": "user"
+  },
+  {
+    "username": "Basilmaz",
+    "email": "basilmaz@gmail.com",
+    "password": "$2b$10$VBlP3jmmijm419n5HsFLdecFmdLZvVx2lE3UaHmgUHEKI49kbqlqK",
+    "role": "user"
+  }
+]
