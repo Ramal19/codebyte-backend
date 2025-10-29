@@ -320,11 +320,6 @@ app.get("/profile", auth, (req, res) => {
   res.json({ message: `Xoş gəldin ${req.user.username}!`, role: req.user.role });
 });
 
-app.use(express.static(path.join(__dirname, "../frontend")));
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/admin.html"));
-});
 
 
 // app.post("/posts", auth, upload.single("image"), (req, res) => {
