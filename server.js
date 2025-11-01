@@ -321,80 +321,63 @@ app.get("/profile", auth, (req, res) => {
 });
 
 
-
-// app.post("/posts", auth, upload.single("image"), (req, res) => {
-//   const posts = readPosts();
-//   const newPost = {
-//     id: Date.now().toString(),
-//     username: req.user.username,
-//     filename: req.file.filename,
-//     text: req.body.text
-//   };
-//   posts.push(newPost);
-//   writePosts(posts);
-//   res.json(newPost);
-// });
-
-// app.post("/posts", auth, upload.fields([{ name: "video" }, { name: "cover" }]), (req, res) => {
-//   const posts = readPosts();
-//   const newPost = {
-//     id: Date.now().toString(),
-//     username: req.user.username,
-//     text: req.body.text || "",
-//     video: req.files.video[0].filename,   // video fayl
-//     cover: req.files.cover[0].filename    // qapaq şəkil
-//   };
-//   posts.push(newPost);
-//   writePosts(posts);
-//   res.json(newPost);
-// });
-
-app.post("/posts", auth, upload.fields([{ name: "video" }, { name: "cover" }]), (req, res) => {
-  try {
-    if (!req.files || !req.files.video || !req.files.cover) {
-      return res.status(400).json({ message: "Video və ya cover faylı göndərilməyib" });
-    }
-
+app.post(
+  "/posts",
+  auth,
+  upload.fields([
+    { name: "courseCover", maxCount: 1 },
+    { name: "videos", maxCount: 20 },
+    { name: "videoCovers", maxCount: 20 }
+  ]),
+  (req, res) => {
     const posts = readPosts();
+    const { text, category } = req.body;
+    const username = req.user.username;
+
+    const courseCover = req.files["courseCover"]?.[0]?.filename;
+    const videos = req.files["videos"]?.map(f => f.filename) || [];
+    const videoCovers = req.files["videoCovers"]?.map(f => f.filename) || [];
+
     const newPost = {
       id: Date.now().toString(),
-      username: req.user.username,
-      text: req.body.text || "",
-      video: req.files.video[0].filename,
-      cover: req.files.cover[0].filename
+      username,
+      text,
+      category,
+      courseCover,
+      videos,
+      videoCovers,
     };
 
     posts.push(newPost);
     writePosts(posts);
-    res.json(newPost);
-  } catch (err) {
-    console.error("POST /posts xətası:", err);
-    res.status(500).json({ message: "Server xətası baş verdi" });
+    res.json({ message: "Kurs əlavə olundu", newPost });
   }
-});
+);
+
 
 
 app.get("/posts", (req, res) => {
   res.json(readPosts());
 });
-
 app.delete("/posts/:id", auth, (req, res) => {
   const posts = readPosts();
-  const post = posts.find(p => p.id === req.params.id);
+  const post = posts.find(p => p.id.toString() === req.params.id);
   if (!post) return res.status(404).json({ message: "Tapılmadı" });
   if (post.username !== req.user.username)
     return res.status(403).json({ message: "Silmə icazən yoxdur" });
 
   try {
-    fs.unlinkSync(path.join(uploadDir, post.video));
-    fs.unlinkSync(path.join(uploadDir, post.cover));
+    if (post.courseCover) fs.unlinkSync(path.join(uploadDir, post.courseCover));
+    if (post.videos) post.videos.forEach(v => fs.unlinkSync(path.join(uploadDir, v)));
+    if (post.videoCovers) post.videoCovers.forEach(c => fs.unlinkSync(path.join(uploadDir, c)));
   } catch (err) {
     console.warn("Silinərkən xəta:", err.message);
   }
-  writePosts(posts.filter(p => p.id !== req.params.id));
-  res.json({ message: "Silindi" });
 
+  writePosts(posts.filter(p => p.id.toString() !== req.params.id));
+  res.json({ message: "Silindi" });
 });
+
 
 app.get("/users", (req, res) => {
   try {
@@ -409,6 +392,8 @@ app.get("/users", (req, res) => {
     res.status(500).json({ message: "Server xətası: İstifadəçi məlumatları tapılmadı." });
   }
 });
+
+
 
 app.listen(PORT, () =>
   console.log(`✅ Server işləyir: http://localhost:${PORT}`)
