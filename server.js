@@ -7,8 +7,19 @@ import cors from "cors";
 import multer from "multer";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import admin from "firebase-admin";
 
 dotenv.config();
+
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+const db = admin.firestore();
+const usersRef = db.collection("users");
+const postsRef = db.collection("posts");
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,25 +38,29 @@ app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static(uploadDir));
 
-function readUsers() {
-  if (!fs.existsSync(USERS_FILE)) fs.writeFileSync(USERS_FILE, "[]");
-  return JSON.parse(fs.readFileSync(USERS_FILE, "utf8"));
+async function readUsers() {
+  const snapshot = await usersRef.get();
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 }
-function writeUsers(users) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+
+async function writeUsers() {
+  console.log("Users yazma funksiyası Firebase tərəfindən idarə olunur.");
 }
-function readPosts() {
-  if (!fs.existsSync(POSTS_FILE)) fs.writeFileSync(POSTS_FILE, "[]");
-  return JSON.parse(fs.readFileSync(POSTS_FILE, "utf8"));
+
+async function readPosts() {
+  const snapshot = await postsRef.get();
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 }
-function writePosts(posts) {
-  fs.writeFileSync(POSTS_FILE, JSON.stringify(posts, null, 2));
+
+async function writePosts() {
+  console.log("Posts yazma funksiyası Firebase tərəfindən idarə olunur.");
 }
 
 function auth(req, res, next) {
   const header = req.headers["authorization"];
   const token = header && header.split(" ")[1];
   if (!token) return res.status(401).json({ message: "Token yoxdur" });
+
   try {
     const user = jwt.verify(token, SECRET);
     req.user = user;
@@ -70,22 +85,24 @@ app.post("/register", async (req, res) => {
   if (!username || !email || !password)
     return res.status(400).json({ message: "Boş ola bilməz" });
 
-  const users = readUsers();
-  if (users.find(u => u.username === username))
+  const users = await readUsers();
+
+  if (users.find((u) => u.username === username))
     return res.status(409).json({ message: "Bu istifadəçi artıq mövcuddur" });
-  if (users.find(u => u.email === email))
+  if (users.find((u) => u.email === email))
     return res.status(409).json({ message: "Bu email artıq istifadə olunur" });
 
   const hashed = await bcrypt.hash(password, 10);
-  users.push({ username, email, password: hashed, role: "user" });
-  writeUsers(users);
+  await usersRef.add({ username, email, password: hashed, role: "user" });
+
   res.json({ message: "Qeydiyyat uğurla tamamlandı" });
 });
 
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
-  const users = readUsers();
-  const user = users.find(u => u.username === username);
+  const users = await readUsers();
+
+  const user = users.find((u) => u.username === username);
   if (!user) return res.status(401).json({ message: "İstifadəçi tapılmadı" });
 
   const match = await bcrypt.compare(password, user.password);
@@ -103,9 +120,10 @@ app.get("/profile", auth, (req, res) => {
   res.json({ message: `Xoş gəldin ${req.user.username}!`, role: req.user.role });
 });
 
-app.get("/users", (req, res) => {
+app.get("/users", async (req, res) => {
   try {
-    res.json(readUsers());
+    const users = await readUsers();
+    res.json(users);
   } catch (error) {
     console.error("USERS ERROR:", error);
     res.status(500).json({ message: "Server xətası: istifadəçilər tapılmadı." });
@@ -120,15 +138,14 @@ app.post(
     { name: "videos", maxCount: 20 },
     { name: "videoCovers", maxCount: 20 },
   ]),
-  (req, res) => {
+  async (req, res) => {
     try {
-      const posts = readPosts();
       const { text, category } = req.body;
       const username = req.user.username;
 
-      const courseCover = req.files["courseCover"]?.[0]?.filename || "";
-      const videos = req.files["videos"]?.map(f => f.filename) || [];
-      const videoCovers = req.files["videoCovers"]?.map(f => f.filename) || [];
+      const courseCover = req.files?.["courseCover"]?.[0]?.filename || "";
+      const videos = req.files?.["videos"]?.map((f) => f.filename) || [];
+      const videoCovers = req.files?.["videoCovers"]?.map((f) => f.filename) || [];
 
       const newPost = {
         id: Date.now().toString(),
@@ -138,41 +155,65 @@ app.post(
         courseCover,
         videos,
         videoCovers,
+        createdAt: new Date().toISOString(),
       };
 
-      posts.push(newPost);
-      writePosts(posts);
+      await postsRef.doc(newPost.id).set(newPost);
+
       res.json({ message: "Kurs əlavə olundu", newPost });
     } catch (err) {
       console.error("POST /posts error:", err);
-      res.status(500).json({ message: "Server xətası" });
+      res.status(500).json({ message: "Server xətası", error: err.message });
     }
   }
 );
 
-app.get("/posts", (req, res) => {
-  res.json(readPosts());
+app.get("/posts", async (req, res) => {
+  const posts = await readPosts();
+  res.json(posts);
 });
 
-app.delete("/posts/:id", auth, (req, res) => {
-  const posts = readPosts();
-  const post = posts.find(p => p.id.toString() === req.params.id);
-  if (!post) return res.status(404).json({ message: "Tapılmadı" });
-  if (post.username !== req.user.username)
-    return res.status(403).json({ message: "Silmə icazən yoxdur" });
-
+app.delete("/posts/:id", auth, async (req, res) => {
   try {
-    if (post.courseCover) fs.unlinkSync(path.join(uploadDir, post.courseCover));
-    if (post.videos) post.videos.forEach(v => fs.unlinkSync(path.join(uploadDir, v)));
-    if (post.videoCovers) post.videoCovers.forEach(c => fs.unlinkSync(path.join(uploadDir, c)));
-  } catch (err) {
-    console.warn("Silinərkən xəta:", err.message);
-  }
+    const postId = req.params.id;
+    const posts = await readPosts();
+    const post = posts.find((p) => p.id.toString() === postId);
 
-  writePosts(posts.filter(p => p.id.toString() !== req.params.id));
-  res.json({ message: "Silindi" });
+    if (!post)
+      return res.status(404).json({ message: "Tapılmadı" });
+
+    if (post.username !== req.user.username)
+      return res.status(403).json({ message: "Silmə icazən yoxdur" });
+
+    try {
+      if (post.courseCover && fs.existsSync(path.join(uploadDir, post.courseCover)))
+        fs.unlinkSync(path.join(uploadDir, post.courseCover));
+
+      if (post.videos)
+        post.videos.forEach((v) => {
+          const filePath = path.join(uploadDir, v);
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        });
+
+      if (post.videoCovers)
+        post.videoCovers.forEach((c) => {
+          const filePath = path.join(uploadDir, c);
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        });
+    } catch (err) {
+      console.warn("Silinərkən xəta:", err.message);
+    }
+
+    await postsRef.doc(postId).delete();
+
+    res.json({ message: "Silindi" });
+  } catch (error) {
+    console.error("DELETE /posts/:id error:", error);
+    res.status(500).json({ message: "Server xətası", error: error.message });
+  }
 });
 
+// Server işə düşür
 app.listen(PORT, () => {
   console.log(`✅ Server işləyir: http://localhost:${PORT}`);
 });
