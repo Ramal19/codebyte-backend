@@ -212,8 +212,90 @@ app.delete("/posts/:id", auth, async (req, res) => {
     res.status(500).json({ message: "Server xətası", error: error.message });
   }
 });
+// Wishlist əlavə et
+app.post("/wishlist/:postId", auth, async (req, res) => {
+  try {
+    const username = req.user.username;
+    const postId = req.params.postId;
 
-// Server işə düşür
+    const snapshot = await db
+      .collection("wishlist")
+      .where("username", "==", username)
+      .where("postId", "==", postId)
+      .get();
+
+    if (!snapshot.empty) {
+      return res.status(400).json({ message: "Bu kurs artıq wishlistdə var" });
+    }
+
+    await db.collection("wishlist").add({
+      username,
+      postId,
+      addedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    res.json({ message: "Kurs wishlistə əlavə olundu" });
+  } catch (error) {
+    console.error("POST /wishlist error:", error);
+    res.status(500).json({ message: "Server xətası", error: error.message });
+  }
+});
+
+// Wishlist-i götür
+app.get("/wishlist", auth, async (req, res) => {
+  try {
+    const username = req.user.username;
+
+    const snapshot = await db
+      .collection("wishlist")
+      .where("username", "==", username)
+      .get();
+
+    const wishlistItems = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    // İstəyə görə post məlumatlarını da birləşdir
+    const posts = await readPosts();
+    const userWishlist = wishlistItems.map((w) => {
+      const post = posts.find((p) => p.id === w.postId);
+      return { ...w, post };
+    });
+
+    res.json(userWishlist);
+  } catch (error) {
+    console.error("GET /wishlist error:", error);
+    res.status(500).json({ message: "Server xətası", error: error.message });
+  }
+});
+
+// Wishlist-dən sil
+app.delete("/wishlist/:postId", auth, async (req, res) => {
+  try {
+    const username = req.user.username;
+    const postId = req.params.postId;
+
+    const snapshot = await db
+      .collection("wishlist")
+      .where("username", "==", username)
+      .where("postId", "==", postId)
+      .get();
+
+    if (snapshot.empty)
+      return res.status(404).json({ message: "Wishlistdə tapılmadı" });
+
+    const docId = snapshot.docs[0].id;
+    await db.collection("wishlist").doc(docId).delete();
+
+    res.json({ message: "Wishlistdən silindi" });
+  } catch (error) {
+    console.error("DELETE /wishlist error:", error);
+    res.status(500).json({ message: "Server xətası", error: error.message });
+  }
+});
+
+
 app.listen(PORT, () => {
   console.log(`✅ Server işləyir: http://localhost:${PORT}`);
 });
