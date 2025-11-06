@@ -212,7 +212,8 @@ app.delete("/posts/:id", auth, async (req, res) => {
     res.status(500).json({ message: "Server xətası", error: error.message });
   }
 });
-// Wishlist əlavə et
+
+
 app.post("/wishlist/:postId", auth, async (req, res) => {
   try {
     const username = req.user.username;
