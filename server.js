@@ -8,6 +8,7 @@ import multer from "multer";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import admin from "firebase-admin";
+import { v4 as uuidv4 } from "uuid";
 
 dotenv.config();
 
@@ -15,9 +16,11 @@ const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET, // ✅ Firebase Storage aktivləşdirilib
 });
 
 const db = admin.firestore();
+const bucket = admin.storage().bucket(); // ✅ Storage bucket yaradıldı
 const usersRef = db.collection("users");
 const postsRef = db.collection("posts");
 
@@ -26,9 +29,6 @@ const __dirname = path.dirname(__filename);
 
 const USERS_FILE = path.join(__dirname, "users.json");
 const POSTS_FILE = path.join(__dirname, "posts.json");
-const uploadDir = path.join(__dirname, "uploads");
-
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,15 +36,14 @@ const SECRET = process.env.JWT_SECRET || "super_secret_key";
 
 app.use(cors());
 app.use(express.json());
-app.use("/uploads", express.static(uploadDir));
 
+// Multer yaddaşı RAM-da saxlayacaq (diskdə deyil)
+const upload = multer({ storage: multer.memoryStorage() });
+
+// --- Firestore oxuma funksiyaları ---
 async function readUsers() {
   const snapshot = await usersRef.get();
   return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-}
-
-async function writeUsers() {
-  console.log("Users yazma funksiyası Firebase tərəfindən idarə olunur.");
 }
 
 async function readPosts() {
@@ -52,10 +51,7 @@ async function readPosts() {
   return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 }
 
-async function writePosts() {
-  console.log("Posts yazma funksiyası Firebase tərəfindən idarə olunur.");
-}
-
+// --- Auth Middleware ---
 function auth(req, res, next) {
   const header = req.headers["authorization"];
   const token = header && header.split(" ")[1];
@@ -70,16 +66,7 @@ function auth(req, res, next) {
   }
 }
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
-    const unique = Date.now() + "-" + file.originalname;
-    cb(null, unique);
-  },
-});
-const upload = multer({ storage });
-
-
+// --- Qeydiyyat ---
 app.post("/register", async (req, res) => {
   const { username, email, password } = req.body;
   if (!username || !email || !password)
@@ -98,6 +85,7 @@ app.post("/register", async (req, res) => {
   res.json({ message: "Qeydiyyat uğurla tamamlandı" });
 });
 
+// --- Login ---
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
   const users = await readUsers();
@@ -116,10 +104,12 @@ app.post("/login", async (req, res) => {
   res.json({ token });
 });
 
+// --- Profil ---
 app.get("/profile", auth, (req, res) => {
   res.json({ message: `Xoş gəldin ${req.user.username}!`, role: req.user.role });
 });
 
+// --- İstifadəçi siyahısı ---
 app.get("/users", async (req, res) => {
   try {
     const users = await readUsers();
@@ -130,6 +120,19 @@ app.get("/users", async (req, res) => {
   }
 });
 
+// --- Fayl yükləmə funksiyası (Firebase Storage üçün) ---
+async function uploadToFirebase(file) {
+  const uniqueName = `${Date.now()}-${uuidv4()}-${file.originalname}`;
+  const fileRef = bucket.file(uniqueName);
+  await fileRef.save(file.buffer, { metadata: { contentType: file.mimetype } });
+  const [url] = await fileRef.getSignedUrl({
+    action: "read",
+    expires: "03-01-2035",
+  });
+  return url;
+}
+
+// --- Post əlavə etmə ---
 app.post(
   "/posts",
   auth,
@@ -143,9 +146,16 @@ app.post(
       const { text, category } = req.body;
       const username = req.user.username;
 
-      const courseCover = req.files?.["courseCover"]?.[0]?.filename || "";
-      const videos = req.files?.["videos"]?.map((f) => f.filename) || [];
-      const videoCovers = req.files?.["videoCovers"]?.map((f) => f.filename) || [];
+      const courseCoverFile = req.files["courseCover"]?.[0];
+      const videosFiles = req.files["videos"] || [];
+      const videoCoversFiles = req.files["videoCovers"] || [];
+
+      const courseCover = courseCoverFile
+        ? await uploadToFirebase(courseCoverFile)
+        : "";
+
+      const videos = await Promise.all(videosFiles.map(uploadToFirebase));
+      const videoCovers = await Promise.all(videoCoversFiles.map(uploadToFirebase));
 
       const newPost = {
         id: Date.now().toString(),
@@ -159,7 +169,6 @@ app.post(
       };
 
       await postsRef.doc(newPost.id).set(newPost);
-
       res.json({ message: "Kurs əlavə olundu", newPost });
     } catch (err) {
       console.error("POST /posts error:", err);
@@ -168,44 +177,24 @@ app.post(
   }
 );
 
+// --- Postları göstər ---
 app.get("/posts", async (req, res) => {
   const posts = await readPosts();
   res.json(posts);
 });
 
+// --- Post silmə ---
 app.delete("/posts/:id", auth, async (req, res) => {
   try {
     const postId = req.params.id;
     const posts = await readPosts();
     const post = posts.find((p) => p.id.toString() === postId);
 
-    if (!post)
-      return res.status(404).json({ message: "Tapılmadı" });
-
+    if (!post) return res.status(404).json({ message: "Tapılmadı" });
     if (post.username !== req.user.username)
       return res.status(403).json({ message: "Silmə icazən yoxdur" });
 
-    try {
-      if (post.courseCover && fs.existsSync(path.join(uploadDir, post.courseCover)))
-        fs.unlinkSync(path.join(uploadDir, post.courseCover));
-
-      if (post.videos)
-        post.videos.forEach((v) => {
-          const filePath = path.join(uploadDir, v);
-          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        });
-
-      if (post.videoCovers)
-        post.videoCovers.forEach((c) => {
-          const filePath = path.join(uploadDir, c);
-          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        });
-    } catch (err) {
-      console.warn("Silinərkən xəta:", err.message);
-    }
-
     await postsRef.doc(postId).delete();
-
     res.json({ message: "Silindi" });
   } catch (error) {
     console.error("DELETE /posts/:id error:", error);
@@ -213,7 +202,7 @@ app.delete("/posts/:id", auth, async (req, res) => {
   }
 });
 
-
+// --- Wishlist əlavə etmə ---
 app.post("/wishlist/:postId", auth, async (req, res) => {
   try {
     const username = req.user.username;
@@ -242,7 +231,7 @@ app.post("/wishlist/:postId", auth, async (req, res) => {
   }
 });
 
-// Wishlist-i götür
+// --- Wishlist göstər ---
 app.get("/wishlist", auth, async (req, res) => {
   try {
     const username = req.user.username;
@@ -257,7 +246,6 @@ app.get("/wishlist", auth, async (req, res) => {
       ...doc.data(),
     }));
 
-    // İstəyə görə post məlumatlarını da birləşdir
     const posts = await readPosts();
     const userWishlist = wishlistItems.map((w) => {
       const post = posts.find((p) => p.id === w.postId);
@@ -271,7 +259,7 @@ app.get("/wishlist", auth, async (req, res) => {
   }
 });
 
-// Wishlist-dən sil
+// --- Wishlist silmə ---
 app.delete("/wishlist/:postId", auth, async (req, res) => {
   try {
     const username = req.user.username;
@@ -295,7 +283,6 @@ app.delete("/wishlist/:postId", auth, async (req, res) => {
     res.status(500).json({ message: "Server xətası", error: error.message });
   }
 });
-
 
 app.listen(PORT, () => {
   console.log(`✅ Server işləyir: http://localhost:${PORT}`);
