@@ -146,6 +146,11 @@ app.post(
       const { text, category } = req.body;
       const username = req.user.username;
 
+      const videoTitles = Array.isArray(req.body.videoTitles)
+        ? req.body.videoTitles
+        : [req.body.videoTitles];
+
+
       const courseCoverFile = req.files["courseCover"]?.[0];
       const videosFiles = req.files["videos"] || [];
       const videoCoversFiles = req.files["videoCovers"] || [];
@@ -157,6 +162,17 @@ app.post(
       const videos = await Promise.all(videosFiles.map(uploadToFirebase));
       const videoCovers = await Promise.all(videoCoversFiles.map(uploadToFirebase));
 
+      // const newPost = {
+      //   id: Date.now().toString(),
+      //   username,
+      //   text,
+      //   category,
+      //   courseCover,
+      //   videos,
+      //   videoCovers,
+      //   createdAt: new Date().toISOString(),
+      // };
+
       const newPost = {
         id: Date.now().toString(),
         username,
@@ -165,8 +181,10 @@ app.post(
         courseCover,
         videos,
         videoCovers,
+        videoTitles, // ✅ Başlıqları da əlavə et
         createdAt: new Date().toISOString(),
       };
+
 
       await postsRef.doc(newPost.id).set(newPost);
       res.json({ message: "Kurs əlavə olundu", newPost });
