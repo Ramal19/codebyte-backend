@@ -131,7 +131,7 @@ async function uploadToFirebase(file) {
   });
   return url;
 }
-
+// --- Post əlavə etmə ---
 // --- Post əlavə etmə ---
 app.post(
   "/posts",
@@ -139,39 +139,31 @@ app.post(
   upload.fields([
     { name: "courseCover", maxCount: 1 },
     { name: "videos", maxCount: 20 },
-    { name: "videoCovers", maxCount: 20 },
+    { name: "videoCovers", maxCount: 20 }
   ]),
   async (req, res) => {
     try {
       const { text, category } = req.body;
       const username = req.user.username;
 
-      const videoTitles = Array.isArray(req.body.videoTitles)
-        ? req.body.videoTitles
-        : [req.body.videoTitles];
-
+      // videoTitles JSON kimi gəlir → parse edirik
+      let videoTitles = [];
+      if (req.body.videoTitles) {
+        try {
+          videoTitles = JSON.parse(req.body.videoTitles);
+        } catch {
+          videoTitles = [req.body.videoTitles];
+        }
+      }
 
       const courseCoverFile = req.files["courseCover"]?.[0];
       const videosFiles = req.files["videos"] || [];
       const videoCoversFiles = req.files["videoCovers"] || [];
 
-      const courseCover = courseCoverFile
-        ? await uploadToFirebase(courseCoverFile)
-        : "";
-
+      // Faylları Firebase-ə yükləyirik
+      const courseCover = courseCoverFile ? await uploadToFirebase(courseCoverFile) : "";
       const videos = await Promise.all(videosFiles.map(uploadToFirebase));
       const videoCovers = await Promise.all(videoCoversFiles.map(uploadToFirebase));
-
-      // const newPost = {
-      //   id: Date.now().toString(),
-      //   username,
-      //   text,
-      //   category,
-      //   courseCover,
-      //   videos,
-      //   videoCovers,
-      //   createdAt: new Date().toISOString(),
-      // };
 
       const newPost = {
         id: Date.now().toString(),
@@ -181,10 +173,9 @@ app.post(
         courseCover,
         videos,
         videoCovers,
-        videoTitles, // ✅ Başlıqları da əlavə et
+        videoTitles, // ✅ artıq düzgün saxlanacaq
         createdAt: new Date().toISOString(),
       };
-
 
       await postsRef.doc(newPost.id).set(newPost);
       res.json({ message: "Kurs əlavə olundu", newPost });
@@ -194,6 +185,8 @@ app.post(
     }
   }
 );
+
+
 
 // --- Postları göstər ---
 app.get("/posts", async (req, res) => {
