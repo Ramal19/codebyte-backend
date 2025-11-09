@@ -131,70 +131,67 @@ async function uploadToFirebase(file) {
   });
   return url;
 }
-// --- Post əlavə etmə ---
-// --- Post əlavə etmə ---
-app.post(
-  "/posts",
-  auth,
-  upload.fields([
-    { name: "courseCover", maxCount: 1 },
-    { name: "videos", maxCount: 20 },
-    { name: "videoCovers", maxCount: 20 }
-  ]),
-  async (req, res) => {
-    try {
-      const { text, category } = req.body;
-      const username = req.user.username;
 
-      // videoTitles JSON kimi gəlir → parse edirik
-      let videoTitles = [];
-      if (req.body.videoTitles) {
-        try {
-          videoTitles = JSON.parse(req.body.videoTitles);
-        } catch {
-          videoTitles = [req.body.videoTitles];
-        }
+app.post("/posts", auth, upload.any(), async (req, res) => {
+
+  try {
+    console.log("✅ POST /posts route işə düşdü");
+
+    console.log("req.body:", req.body);
+
+    const { text, category } = req.body;
+    const username = req.user?.username || "Anonim";
+
+    let videoTitles = [];
+    if (req.body.videoTitles) {
+      try {
+        videoTitles = JSON.parse(req.body.videoTitles);
+      } catch (err) {
+        console.log("⚠️ videoTitles parse xətası:", err);
+        videoTitles = [req.body.videoTitles];
       }
-
-      const courseCoverFile = req.files["courseCover"]?.[0];
-      const videosFiles = req.files["videos"] || [];
-      const videoCoversFiles = req.files["videoCovers"] || [];
-
-      // Faylları Firebase-ə yükləyirik
-      const courseCover = courseCoverFile ? await uploadToFirebase(courseCoverFile) : "";
-      const videos = await Promise.all(videosFiles.map(uploadToFirebase));
-      const videoCovers = await Promise.all(videoCoversFiles.map(uploadToFirebase));
-
-      const newPost = {
-        id: Date.now().toString(),
-        username,
-        text,
-        category,
-        courseCover,
-        videos,
-        videoCovers,
-        videoTitles, // ✅ artıq düzgün saxlanacaq
-        createdAt: new Date().toISOString(),
-      };
-
-      await postsRef.doc(newPost.id).set(newPost);
-      res.json({ message: "Kurs əlavə olundu", newPost });
-    } catch (err) {
-      console.error("POST /posts error:", err);
-      res.status(500).json({ message: "Server xətası", error: err.message });
     }
+
+    console.log("videoTitles nəticə:", videoTitles);
+
+    const courseCoverFile = req.files.find(f => f.fieldname === "courseCover");
+    const videosFiles = req.files.filter(f => f.fieldname === "videos");
+    const videoCoversFiles = req.files.filter(f => f.fieldname === "videoCovers");
+
+    const courseCover = courseCoverFile ? await uploadToFirebase(courseCoverFile) : "";
+    const videos = await Promise.all(videosFiles.map(uploadToFirebase));
+    const videoCovers = await Promise.all(videoCoversFiles.map(uploadToFirebase));
+
+    const newPost = {
+      id: Date.now().toString(),
+      username,
+      text,
+      category,
+      courseCover,
+      videos,
+      videoCovers,
+      videoTitles,
+      createdAt: new Date().toISOString(),
+    };
+
+    console.log("🔥 Firebase-ə göndərilən obyekt:", newPost);
+
+    await postsRef.doc(newPost.id).set(newPost);
+
+    res.json({ message: "Kurs əlavə olundu", newPost });
+  } catch (err) {
+    console.error("❌ POST /posts error:", err);
+    res.status(500).json({ message: "Server xətası", error: err.message });
   }
+}
 );
 
 
-
-// --- Postları göstər ---
 app.get("/posts", async (req, res) => {
   const posts = await readPosts();
   res.json(posts);
 });
 
-// --- Post silmə ---
 app.delete("/posts/:id", auth, async (req, res) => {
   try {
     const postId = req.params.id;
@@ -213,7 +210,6 @@ app.delete("/posts/:id", auth, async (req, res) => {
   }
 });
 
-// --- Wishlist əlavə etmə ---
 app.post("/wishlist/:postId", auth, async (req, res) => {
   try {
     const username = req.user.username;
@@ -242,7 +238,6 @@ app.post("/wishlist/:postId", auth, async (req, res) => {
   }
 });
 
-// --- Wishlist göstər ---
 app.get("/wishlist", auth, async (req, res) => {
   try {
     const username = req.user.username;
@@ -270,7 +265,6 @@ app.get("/wishlist", auth, async (req, res) => {
   }
 });
 
-// --- Wishlist silmə ---
 app.delete("/wishlist/:postId", auth, async (req, res) => {
   try {
     const username = req.user.username;
