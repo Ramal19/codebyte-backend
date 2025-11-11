@@ -289,6 +289,31 @@ app.delete("/wishlist/:postId", auth, async (req, res) => {
   }
 });
 
+app.post("/contact", async (req, res) => {
+  try {
+    const { name, surname, email, phone, message } = req.body;
+
+    if (!name || !surname || !email || !message) {
+      return res.status(400).json({ message: "Zəhmət olmasa bütün xanaları doldurun." });
+    }
+
+    await db.collection("contacts").add({
+      name,
+      surname,
+      email,
+      phone: phone || "",
+      message,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    res.json({ message: "Mesaj uğurla göndərildi." });
+  } catch (error) {
+    console.error("POST /contact error:", error);
+    res.status(500).json({ message: "Server xətası", error: error.message });
+  }
+});
+
+
 app.listen(PORT, () => {
   console.log(`✅ Server işləyir: http://localhost:${PORT}`);
 });
