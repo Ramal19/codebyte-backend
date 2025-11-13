@@ -292,33 +292,27 @@ app.delete("/wishlist/:postId", auth, async (req, res) => {
 
 app.post("/contact", async (req, res) => {
   try {
-    console.log("POST /contact body:", req.body);
-
     const { name, surname, email, phone, message } = req.body;
 
     if (!name || !surname || !email || !message) {
       return res.status(400).json({ message: "Zəhmət olmasa bütün xanaları doldurun." });
     }
 
-    const docRef = await db.collection("contacts").add({
+    await db.collection("contacts").add({
       name,
       surname,
       email,
-      phone: phone || "",
+      phone,
       message,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: new Date().toISOString(),
     });
 
-    console.log("Mesaj Firestore-a yazıldı, ID:", docRef.id);
-
-    res.json({ message: "Mesaj uğurla göndərildi." });
+    res.status(200).json({ message: "Mesaj uğurla göndərildi!" });
   } catch (error) {
-    console.error("POST /contact error:", error);
-    res.status(500).json({ message: "Server xətası", error: error.message });
+    console.error("Contact error:", error);
+    res.status(500).json({ message: "Server xətası baş verdi." });
   }
 });
-
-
 
 
 app.listen(PORT, () => {
