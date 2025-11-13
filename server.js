@@ -35,6 +35,7 @@ const PORT = process.env.PORT || 3000;
 const SECRET = process.env.JWT_SECRET || "super_secret_key";
 
 app.use(cors());
+app.options("*", cors()); // <--- bunu əlavə et
 app.use(express.json());
 
 // Multer yaddaşı RAM-da saxlayacaq (diskdə deyil)
