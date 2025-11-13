@@ -35,7 +35,6 @@ const PORT = process.env.PORT || 3000;
 const SECRET = process.env.JWT_SECRET || "super_secret_key";
 
 app.use(cors());
-app.options("*", cors());
 app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage() });
