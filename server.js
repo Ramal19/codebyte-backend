@@ -20,7 +20,7 @@ admin.initializeApp({
 });
 
 const db = admin.firestore();
-const bucket = admin.storage().bucket(); 
+const bucket = admin.storage().bucket();
 const usersRef = db.collection("users");
 const postsRef = db.collection("posts");
 
@@ -35,7 +35,7 @@ const PORT = process.env.PORT || 3000;
 const SECRET = process.env.JWT_SECRET || "super_secret_key";
 
 app.use(cors());
-app.options("*", cors()); 
+app.options("*", cors());
 app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -287,7 +287,7 @@ app.delete("/wishlist/:postId", auth, async (req, res) => {
   }
 });
 
-app.post("/contact", async (req, res) => {
+app.post("/api/contact", async (req, res) => {
   try {
     const { name, surname, email, phone, message } = req.body;
 
