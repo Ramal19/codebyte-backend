@@ -16,11 +16,11 @@ const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET, // ✅ Firebase Storage aktivləşdirilib
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
 });
 
 const db = admin.firestore();
-const bucket = admin.storage().bucket(); // ✅ Storage bucket yaradıldı
+const bucket = admin.storage().bucket(); 
 const usersRef = db.collection("users");
 const postsRef = db.collection("posts");
 
@@ -35,13 +35,11 @@ const PORT = process.env.PORT || 3000;
 const SECRET = process.env.JWT_SECRET || "super_secret_key";
 
 app.use(cors());
-app.options("*", cors()); // <--- bunu əlavə et
+app.options("*", cors()); 
 app.use(express.json());
 
-// Multer yaddaşı RAM-da saxlayacaq (diskdə deyil)
 const upload = multer({ storage: multer.memoryStorage() });
 
-// --- Firestore oxuma funksiyaları ---
 async function readUsers() {
   const snapshot = await usersRef.get();
   return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
@@ -52,7 +50,6 @@ async function readPosts() {
   return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 }
 
-// --- Auth Middleware ---
 function auth(req, res, next) {
   const header = req.headers["authorization"];
   const token = header && header.split(" ")[1];
@@ -136,7 +133,7 @@ async function uploadToFirebase(file) {
 app.post("/posts", auth, upload.any(), async (req, res) => {
 
   try {
-    console.log("✅ POST /posts route işə düşdü");
+    console.log("POST /posts route işə düşdü");
 
     console.log("req.body:", req.body);
 
