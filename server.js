@@ -321,6 +321,26 @@ app.get("/api/contact", async (req, res) => {
   }
 });
 
+app.delete("/api/contact/:id", auth, async (req, res) => {
+  try {
+    const contactId = req.params.id;
+
+    const docRef = db.collection("contacts").doc(contactId);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ message: "Kontakt tapılmadı." });
+    }
+
+    await docRef.delete();
+
+    res.json({ message: "Kontakt uğurla silindi." });
+  } catch (error) {
+    console.error("DELETE /api/contact/:id error:", error);
+    res.status(500).json({ message: "Server xətası: silinmə uğursuz oldu." });
+  }
+});
+
 app.patch("/api/contact/:id/status", auth, async (req, res) => {
   try {
     const contactId = req.params.id;
@@ -339,7 +359,7 @@ app.patch("/api/contact/:id/status", auth, async (req, res) => {
 
     res.json({ message: `Kontaktın statusu uğurla yeniləndi.` });
   } catch (error) {
-    console.error("PATCH /contacts/:id/status error:", error);
+    console.error("PATCH /api/contact/:id/status error:", error);
     res.status(500).json({ message: "Server xətası: status yenilənmədi." });
   }
 });
