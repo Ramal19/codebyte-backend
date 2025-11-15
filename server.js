@@ -321,7 +321,7 @@ app.get("/api/contact", async (req, res) => {
   }
 });
 
-app.patch("/contacts/:id/status", auth, async (req, res) => {
+app.patch("/api/contact/:id/status", auth, async (req, res) => {
   try {
     const contactId = req.params.id;
     const { isRead } = req.body;
