@@ -310,6 +310,17 @@ app.post("/api/contact", async (req, res) => {
   }
 });
 
+app.get("/api/contact", async (req, res) => {
+  try {
+    const snapshot = await db.collection("contacts").get();
+    const contacts = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    res.json(contacts);
+  } catch (error) {
+    console.error("GET /contacts error:", error);
+    res.status(500).json({ message: "Kontaktları oxuyarkən server xətası baş verdi." });
+  }
+});
+
 
 app.listen(PORT, () => {
   console.log(`✅ Server işləyir: http://localhost:${PORT}`);
