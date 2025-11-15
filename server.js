@@ -286,7 +286,7 @@ app.delete("/wishlist/:postId", auth, async (req, res) => {
   }
 });
 
-app.post("/api/contact", async (req, res) => {
+app.post("/contacts", async (req, res) => {
   try {
     const { name, surname, email, phone, message } = req.body;
 
