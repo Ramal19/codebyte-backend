@@ -321,6 +321,28 @@ app.get("/api/contact", async (req, res) => {
   }
 });
 
+app.patch("/contacts/:id/status", auth, async (req, res) => {
+  try {
+    const contactId = req.params.id;
+    const { isRead } = req.body;
+
+    if (typeof isRead !== 'boolean') {
+      return res.status(400).json({ message: "Yanlış məlumat formatı." });
+    }
+
+    const docRef = db.collection("contacts").doc(contactId);
+
+    await docRef.update({
+      isRead: isRead,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    res.json({ message: `Kontaktın statusu uğurla yeniləndi.` });
+  } catch (error) {
+    console.error("PATCH /contacts/:id/status error:", error);
+    res.status(500).json({ message: "Server xətası: status yenilənmədi." });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`✅ Server işləyir: http://localhost:${PORT}`);
