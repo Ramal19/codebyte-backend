@@ -1,34 +1,31 @@
 import express from "express";
-import fs from "fs";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import path from "path";
 import cors from "cors";
 import multer from "multer";
-import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 import admin from "firebase-admin";
 import { v4 as uuidv4 } from "uuid";
 
+
 dotenv.config();
 
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+try {
+  const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-});
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  });
+} catch (e) {
+  console.error("❌ Firebase Konfiqurasiya Xətası:", e.message);
+  console.error("FIREBASE_SERVICE_ACCOUNT dəyişənini yoxlayın.");
+}
 
 const db = admin.firestore();
 const bucket = admin.storage().bucket();
 const usersRef = db.collection("users");
 const postsRef = db.collection("posts");
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const USERS_FILE = path.join(__dirname, "users.json");
-const POSTS_FILE = path.join(__dirname, "posts.json");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -38,6 +35,7 @@ app.use(cors());
 app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage() });
+
 
 async function readUsers() {
   const snapshot = await usersRef.get();
@@ -63,26 +61,59 @@ function auth(req, res, next) {
   }
 }
 
-// --- Qeydiyyat ---
+async function uploadToFirebase(file) {
+  const uniqueName = `${Date.now()}-${uuidv4()}-${file.originalname}`;
+  const fileRef = bucket.file(uniqueName);
+
+  await fileRef.save(file.buffer, { metadata: { contentType: file.mimetype } });
+
+  const [url] = await fileRef.getSignedUrl({
+    action: "read",
+    expires: "03-01-2035",
+  });
+  return url;
+}
+
+async function deleteFromFirebase(url) {
+  if (!url) return;
+  try {
+    const pathMatch = url.match(/o\/(.*?)\?alt=media/);
+    if (pathMatch && pathMatch[1]) {
+      const filePath = decodeURIComponent(pathMatch[1]);
+      await bucket.file(filePath).delete();
+      console.log(`✅ Fayl Storage-dən silindi: ${filePath}`);
+    }
+  } catch (error) {
+    console.warn("⚠️ Fayl silinərkən xəta baş verdi (yəqin ki, artıq silinib):", error.message);
+  }
+}
+
+
+// --- MARŞRUTLAR (ROUTES) ---
+
 app.post("/register", async (req, res) => {
   const { username, email, password } = req.body;
   if (!username || !email || !password)
     return res.status(400).json({ message: "Boş ola bilməz" });
 
-  const users = await readUsers();
+  try {
+    const users = await readUsers();
 
-  if (users.find((u) => u.username === username))
-    return res.status(409).json({ message: "Bu istifadəçi artıq mövcuddur" });
-  if (users.find((u) => u.email === email))
-    return res.status(409).json({ message: "Bu email artıq istifadə olunur" });
+    if (users.find((u) => u.username === username))
+      return res.status(409).json({ message: "Bu istifadəçi artıq mövcuddur" });
+    if (users.find((u) => u.email === email))
+      return res.status(409).json({ message: "Bu email artıq istifadə olunur" });
 
-  const hashed = await bcrypt.hash(password, 10);
-  await usersRef.add({ username, email, password: hashed, role: "user" });
+    const hashed = await bcrypt.hash(password, 10);
+    await usersRef.add({ username, email, password: hashed, role: "user" });
 
-  res.json({ message: "Qeydiyyat uğurla tamamlandı" });
+    res.json({ message: "Qeydiyyat uğurla tamamlandı" });
+  } catch (error) {
+    console.error("REGISTER ERROR:", error);
+    res.status(500).json({ message: "Server xətası" });
+  }
 });
 
-// --- Login ---
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
   const users = await readUsers();
@@ -101,12 +132,10 @@ app.post("/login", async (req, res) => {
   res.json({ token });
 });
 
-// --- Profil ---
 app.get("/profile", auth, (req, res) => {
   res.json({ message: `Xoş gəldin ${req.user.username}!`, role: req.user.role });
 });
 
-// --- İstifadəçi siyahısı ---
 app.get("/users", async (req, res) => {
   try {
     const users = await readUsers();
@@ -117,25 +146,8 @@ app.get("/users", async (req, res) => {
   }
 });
 
-// --- Fayl yükləmə funksiyası (Firebase Storage üçün) ---
-async function uploadToFirebase(file) {
-  const uniqueName = `${Date.now()}-${uuidv4()}-${file.originalname}`;
-  const fileRef = bucket.file(uniqueName);
-  await fileRef.save(file.buffer, { metadata: { contentType: file.mimetype } });
-  const [url] = await fileRef.getSignedUrl({
-    action: "read",
-    expires: "03-01-2035",
-  });
-  return url;
-}
-
 app.post("/posts", auth, upload.any(), async (req, res) => {
-
   try {
-    console.log("POST /posts route işə düşdü");
-
-    console.log("req.body:", req.body);
-
     const { text, category } = req.body;
     const username = req.user?.username || "Anonim";
 
@@ -144,12 +156,9 @@ app.post("/posts", auth, upload.any(), async (req, res) => {
       try {
         videoTitles = JSON.parse(req.body.videoTitles);
       } catch (err) {
-        console.log("⚠️ videoTitles parse xətası:", err);
         videoTitles = [req.body.videoTitles];
       }
     }
-
-    console.log("videoTitles nəticə:", videoTitles);
 
     const courseCoverFile = req.files.find(f => f.fieldname === "courseCover");
     const videosFiles = req.files.filter(f => f.fieldname === "videos");
@@ -171,8 +180,6 @@ app.post("/posts", auth, upload.any(), async (req, res) => {
       createdAt: new Date().toISOString(),
     };
 
-    console.log("🔥 Firebase-ə göndərilən obyekt:", newPost);
-
     await postsRef.doc(newPost.id).set(newPost);
 
     res.json({ message: "Kurs əlavə olundu", newPost });
@@ -182,7 +189,6 @@ app.post("/posts", auth, upload.any(), async (req, res) => {
   }
 }
 );
-
 
 app.get("/posts", async (req, res) => {
   const posts = await readPosts();
@@ -199,6 +205,14 @@ app.delete("/posts/:id", auth, async (req, res) => {
     if (post.username !== req.user.username)
       return res.status(403).json({ message: "Silmə icazən yoxdur" });
 
+    if (post.courseCover) await deleteFromFirebase(post.courseCover);
+    if (post.videos && post.videos.length) {
+      await Promise.all(post.videos.map(deleteFromFirebase));
+    }
+    if (post.videoCovers && post.videoCovers.length) {
+      await Promise.all(post.videoCovers.map(deleteFromFirebase));
+    }
+
     await postsRef.doc(postId).delete();
     res.json({ message: "Silindi" });
   } catch (error) {
@@ -206,6 +220,7 @@ app.delete("/posts/:id", auth, async (req, res) => {
     res.status(500).json({ message: "Server xətası", error: error.message });
   }
 });
+
 
 app.post("/wishlist/:postId", auth, async (req, res) => {
   try {
