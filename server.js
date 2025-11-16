@@ -146,17 +146,40 @@ app.get("/users", async (req, res) => {
   }
 });
 
+// Köməkçi Funksiya: Mətni qeyri-adi HTML varlıqlarından və simvollardan təmizləyir
+const cleanText = (str) => {
+  // Əmin oluruq ki, stringdir
+  if (typeof str !== 'string') return '';
+
+  // Bütün HTML varlıqlarını (məsələn: &nbsp;, &#390;) və bəzi görünməyən simvolları silir
+  // Bu, mətnin təmiz şəkildə bazaya yazılmasını təmin edir.
+  return str.replace(/&[a-z]+;|&#\d+;|<[^>]*>/gi, '').trim();
+};
+
+
 app.post("/posts", auth, upload.any(), async (req, res) => {
   try {
-    const { text, category } = req.body;
+    // 💡 DÜZƏLİŞ: Təmizlənmiş mətn sahələrini qəbul edirik
+    const cleanedText = cleanText(req.body.text);
+    const cleanedCategory = cleanText(req.body.category);
+
     const username = req.user?.username || "Anonim";
 
     let videoTitles = [];
     if (req.body.videoTitles) {
       try {
-        videoTitles = JSON.parse(req.body.videoTitles);
+        // videoTitles massivini təmizləməyə ehtiyac yoxdur, çünki bu JSON.parse olunur
+        const parsedTitles = JSON.parse(req.body.videoTitles);
+
+        // Əgər massivdirsə, hər bir başlığı ayrılıqda təmizləyirik
+        if (Array.isArray(parsedTitles)) {
+          videoTitles = parsedTitles.map(t => cleanText(t));
+        } else {
+          videoTitles = [cleanText(parsedTitles)];
+        }
       } catch (err) {
-        videoTitles = [req.body.videoTitles];
+        // Əgər JSON deyil, tək bir string kimi gəlibsə, təmizləyib massivə salırıq
+        videoTitles = [cleanText(req.body.videoTitles)];
       }
     }
 
@@ -171,8 +194,8 @@ app.post("/posts", auth, upload.any(), async (req, res) => {
     const newPost = {
       id: Date.now().toString(),
       username,
-      text,
-      category,
+      text: cleanedText, // 💡 Təmizlənmiş mətn
+      category: cleanedCategory, // 💡 Təmizlənmiş kateqoriya
       courseCover,
       videos,
       videoCovers,
