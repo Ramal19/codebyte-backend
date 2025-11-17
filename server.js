@@ -157,28 +157,118 @@ const cleanText = (str) => {
 };
 
 
+// app.post("/posts", auth, upload.any(), async (req, res) => {
+//   try {
+//     // 💡 DÜZƏLİŞ: Təmizlənmiş mətn sahələrini qəbul edirik
+//     const cleanedText = cleanText(req.body.text);
+//     const cleanedCategory = cleanText(req.body.category);
+
+//     const username = req.user?.username || "Anonim";
+
+//     let videoTitles = [];
+//     if (req.body.videoTitles) {
+//       try {
+//         // videoTitles massivini təmizləməyə ehtiyac yoxdur, çünki bu JSON.parse olunur
+//         const parsedTitles = JSON.parse(req.body.videoTitles);
+
+//         // Əgər massivdirsə, hər bir başlığı ayrılıqda təmizləyirik
+//         if (Array.isArray(parsedTitles)) {
+//           videoTitles = parsedTitles.map(t => cleanText(t));
+//         } else {
+//           videoTitles = [cleanText(parsedTitles)];
+//         }
+//       } catch (err) {
+//         // Əgər JSON deyil, tək bir string kimi gəlibsə, təmizləyib massivə salırıq
+//         videoTitles = [cleanText(req.body.videoTitles)];
+//       }
+//     }
+
+//     const courseCoverFile = req.files.find(f => f.fieldname === "courseCover");
+//     const videosFiles = req.files.filter(f => f.fieldname === "videos");
+//     const videoCoversFiles = req.files.filter(f => f.fieldname === "videoCovers");
+
+//     const courseCover = courseCoverFile ? await uploadToFirebase(courseCoverFile) : "";
+//     const videos = await Promise.all(videosFiles.map(uploadToFirebase));
+//     const videoCovers = await Promise.all(videoCoversFiles.map(uploadToFirebase));
+
+//     const newPost = {
+//       id: Date.now().toString(),
+//       username,
+//       text: cleanedText, // 💡 Təmizlənmiş mətn
+//       category: cleanedCategory, // 💡 Təmizlənmiş kateqoriya
+//       courseCover,
+//       videos,
+//       videoCovers,
+//       videoTitles,
+//       createdAt: new Date().toISOString(),
+//     };
+
+//     await postsRef.doc(newPost.id).set(newPost);
+
+//     res.json({ message: "Kurs əlavə olundu", newPost });
+//   } catch (err) {
+//     console.error("❌ POST /posts error:", err);
+//     res.status(500).json({ message: "Server xətası", error: err.message });
+//   }
+// }
+// );
+
+// app.get("/posts", async (req, res) => {
+//   const posts = await readPosts();
+//   res.json(posts);
+// });
+
+// app.delete("/posts/:id", auth, async (req, res) => {
+//   try {
+//     const postId = req.params.id;
+//     const posts = await readPosts();
+//     const post = posts.find((p) => p.id.toString() === postId);
+
+//     if (!post) return res.status(404).json({ message: "Tapılmadı" });
+//     if (post.username !== req.user.username)
+//       return res.status(403).json({ message: "Silmə icazən yoxdur" });
+
+//     if (post.courseCover) await deleteFromFirebase(post.courseCover);
+//     if (post.videos && post.videos.length) {
+//       await Promise.all(post.videos.map(deleteFromFirebase));
+//     }
+//     if (post.videoCovers && post.videoCovers.length) {
+//       await Promise.all(post.videoCovers.map(deleteFromFirebase));
+//     }
+
+//     await postsRef.doc(postId).delete();
+//     res.json({ message: "Silindi" });
+//   } catch (error) {
+//     console.error("DELETE /posts/:id error:", error);
+//     res.status(500).json({ message: "Server xətası", error: error.message });
+//   }
+// });
+
 app.post("/posts", auth, upload.any(), async (req, res) => {
   try {
-    // 💡 DÜZƏLİŞ: Təmizlənmiş mətn sahələrini qəbul edirik
+    // Mətn sahələrini qəbul edirik
     const cleanedText = cleanText(req.body.text);
     const cleanedCategory = cleanText(req.body.category);
+
+    // 💡 YENİ: Qiyməti qəbul et və nömrəyə çevir
+    const priceString = req.body.price;
+    // Əgər nömrə deyilsə və ya yoxdursa, 0.00 qəbul edirik. 2 onluq dəqiqliyi ilə saxlayırıq.
+    const price = parseFloat(priceString) || 0.00;
 
     const username = req.user?.username || "Anonim";
 
     let videoTitles = [];
     if (req.body.videoTitles) {
       try {
-        // videoTitles massivini təmizləməyə ehtiyac yoxdur, çünki bu JSON.parse olunur
         const parsedTitles = JSON.parse(req.body.videoTitles);
 
-        // Əgər massivdirsə, hər bir başlığı ayrılıqda təmizləyirik
         if (Array.isArray(parsedTitles)) {
+          // JSON parse edilmiş massivin hər bir elementini təmizləyirik
           videoTitles = parsedTitles.map(t => cleanText(t));
         } else {
           videoTitles = [cleanText(parsedTitles)];
         }
       } catch (err) {
-        // Əgər JSON deyil, tək bir string kimi gəlibsə, təmizləyib massivə salırıq
         videoTitles = [cleanText(req.body.videoTitles)];
       }
     }
@@ -187,6 +277,7 @@ app.post("/posts", auth, upload.any(), async (req, res) => {
     const videosFiles = req.files.filter(f => f.fieldname === "videos");
     const videoCoversFiles = req.files.filter(f => f.fieldname === "videoCovers");
 
+    // Faylları Firebase Storage-ə yükləyirik
     const courseCover = courseCoverFile ? await uploadToFirebase(courseCoverFile) : "";
     const videos = await Promise.all(videosFiles.map(uploadToFirebase));
     const videoCovers = await Promise.all(videoCoversFiles.map(uploadToFirebase));
@@ -194,8 +285,9 @@ app.post("/posts", auth, upload.any(), async (req, res) => {
     const newPost = {
       id: Date.now().toString(),
       username,
-      text: cleanedText, // 💡 Təmizlənmiş mətn
-      category: cleanedCategory, // 💡 Təmizlənmiş kateqoriya
+      text: cleanedText,
+      category: cleanedCategory,
+      price: price, // 💡 YENİ: Qiymət əlavə edildi
       courseCover,
       videos,
       videoCovers,
@@ -210,8 +302,7 @@ app.post("/posts", auth, upload.any(), async (req, res) => {
     console.error("❌ POST /posts error:", err);
     res.status(500).json({ message: "Server xətası", error: err.message });
   }
-}
-);
+});
 
 app.get("/posts", async (req, res) => {
   const posts = await readPosts();
@@ -243,7 +334,6 @@ app.delete("/posts/:id", auth, async (req, res) => {
     res.status(500).json({ message: "Server xətası", error: error.message });
   }
 });
-
 
 app.post("/wishlist/:postId", auth, async (req, res) => {
   try {
@@ -416,10 +506,10 @@ app.post("/comments", auth, async (req, res) => {
 
     const newComment = {
       postId: String(postId),
-      videoIndex: Number(videoIndex), 
+      videoIndex: Number(videoIndex),
       username,
       text: cleanedText,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(), 
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
     await db.collection("comments").add(newComment);
