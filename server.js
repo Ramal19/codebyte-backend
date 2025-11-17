@@ -402,7 +402,6 @@ app.patch("/api/contact/:id/status", auth, async (req, res) => {
   }
 });
 
-// --- ŞƏRH MARŞRUTLARI (COMMENT ROUTES) ---
 
 app.post("/comments", auth, async (req, res) => {
   try {
@@ -413,15 +412,14 @@ app.post("/comments", auth, async (req, res) => {
       return res.status(400).json({ message: "Post ID, video indeksi və mətn boş ola bilməz" });
     }
 
-    // Mətni təmizləmək tövsiyə olunur
     const cleanedText = cleanText(text);
 
     const newComment = {
-      postId: String(postId),         // Hansı kursa aid olduğunu göstərir
-      videoIndex: Number(videoIndex), // Hansı video dərsə aid olduğunu göstərir
+      postId: String(postId),
+      videoIndex: Number(videoIndex), 
       username,
       text: cleanedText,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(), 
     };
 
     await db.collection("comments").add(newComment);
@@ -438,12 +436,11 @@ app.get("/comments/:postId/:videoIndex", async (req, res) => {
     const postId = req.params.postId;
     const videoIndex = Number(req.params.videoIndex);
 
-    // Şərhləri post ID və video indeksi əsasında süzürük
     const snapshot = await db
       .collection("comments")
       .where("postId", "==", postId)
       .where("videoIndex", "==", videoIndex)
-      .orderBy("createdAt", "asc") // Ən köhnədən ən yeniyə sıralayırıq
+      .orderBy("createdAt", "asc")
       .get();
 
     const comments = snapshot.docs.map(doc => ({
@@ -454,7 +451,7 @@ app.get("/comments/:postId/:videoIndex", async (req, res) => {
     res.json(comments);
   } catch (error) {
     console.error("GET /comments error:", error);
-    res.status(500).json({ message: "Server xətası: Şərhlər gətirilə bilmədi.", error: error.message });
+    res.status(500).json({ message: "Server xətası: Şərhlər gətirilə bilmədi. Firebase-də 'comments' kolleksiyası üçün kompozit indeksi yaratdığınızdan əmin olun.", error: error.message });
   }
 });
 
