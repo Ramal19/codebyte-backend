@@ -402,6 +402,62 @@ app.patch("/api/contact/:id/status", auth, async (req, res) => {
   }
 });
 
+// --- ŞƏRH MARŞRUTLARI (COMMENT ROUTES) ---
+
+app.post("/comments", auth, async (req, res) => {
+  try {
+    const { postId, videoIndex, text } = req.body;
+    const username = req.user.username;
+
+    if (!postId || typeof videoIndex === 'undefined' || !text) {
+      return res.status(400).json({ message: "Post ID, video indeksi və mətn boş ola bilməz" });
+    }
+
+    // Mətni təmizləmək tövsiyə olunur
+    const cleanedText = cleanText(text);
+
+    const newComment = {
+      postId: String(postId),         // Hansı kursa aid olduğunu göstərir
+      videoIndex: Number(videoIndex), // Hansı video dərsə aid olduğunu göstərir
+      username,
+      text: cleanedText,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    await db.collection("comments").add(newComment);
+
+    res.status(201).json({ message: "Şərh uğurla əlavə edildi" });
+  } catch (error) {
+    console.error("POST /comments error:", error);
+    res.status(500).json({ message: "Server xətası: Şərh əlavə edilmədi.", error: error.message });
+  }
+});
+
+app.get("/comments/:postId/:videoIndex", async (req, res) => {
+  try {
+    const postId = req.params.postId;
+    const videoIndex = Number(req.params.videoIndex);
+
+    // Şərhləri post ID və video indeksi əsasında süzürük
+    const snapshot = await db
+      .collection("comments")
+      .where("postId", "==", postId)
+      .where("videoIndex", "==", videoIndex)
+      .orderBy("createdAt", "asc") // Ən köhnədən ən yeniyə sıralayırıq
+      .get();
+
+    const comments = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    res.json(comments);
+  } catch (error) {
+    console.error("GET /comments error:", error);
+    res.status(500).json({ message: "Server xətası: Şərhlər gətirilə bilmədi.", error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`✅ Server işləyir: http://localhost:${PORT}`);
 });
