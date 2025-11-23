@@ -392,9 +392,6 @@ app.delete("/posts/:id", auth, async (req, res) => {
   }
 });
 
-// --- 🔔 BİLDİRİŞ MARŞRUTLARI ---
-
-// Bildirişləri gətirmək
 app.get("/notifications", auth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -404,19 +401,22 @@ app.get("/notifications", auth, async (req, res) => {
       .orderBy("createdAt", "desc")
       .get();
 
-    // 💡 DÜZƏLİŞ BAŞLANĞICI: Timestamp çevrilməsi əlavə edildi
     const notifications = snapshot.docs.map(doc => {
       const data = doc.data();
 
-      // Firestore Timestamp obyektlərini toMillis() ilə rəqəmlərə çevir
-      const createdAtMillis = data.createdAt ? data.createdAt.toMillis() : null;
-      const readAtMillis = data.readAt ? data.readAt.toMillis() : null;
+      const createdAtMillis = data.createdAt && typeof data.createdAt.toMillis === 'function'
+        ? data.createdAt.toMillis()
+        : null;
+
+      const readAtMillis = data.readAt && typeof data.readAt.toMillis === 'function'
+        ? data.readAt.toMillis()
+        : null;
 
       return {
         id: doc.id,
         ...data,
-        createdAt: createdAtMillis,
-        readAt: readAtMillis,
+        createdAt: createdAtMillis, // Rəqəm formatı (və ya null)
+        readAt: readAtMillis,      // Rəqəm formatı (və ya null)
       };
     });
     // 💡 DÜZƏLİŞ SONU
@@ -425,7 +425,8 @@ app.get("/notifications", auth, async (req, res) => {
 
   } catch (error) {
     console.error("GET /notifications error:", error);
-    res.status(500).json({ message: "Server xətası: bildirişlər gətirilə bilmədi." });
+    // Xəta baş verdikdə Server Xətası cavabı göndər
+    res.status(500).json({ message: "Server xətası: bildirişlər gətirilə bilmədi.", detailedError: error.message });
   }
 });
 
