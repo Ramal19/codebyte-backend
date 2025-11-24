@@ -1164,7 +1164,36 @@ app.get("/course-rating/:courseId", async (req, res) => {
   }
 });
 
-// --- DİGƏR MARŞRUTLAR (Notifications, Comments, Wishlist, Contact) ---
+
+app.get("/user-rating/:courseId", auth, async (req, res) => {
+  const courseId = req.params.courseId;
+  const userId = req.user.id;
+
+  if (!courseId) {
+    return res.status(400).json({ message: "Kurs ID-si tələb olunur." });
+  }
+
+  try {
+    const ratingsRef = db.collection('ratings'); // Düzgün kolleksiya adı ilə əvəz edin
+
+    const userRatingSnapshot = await ratingsRef
+      .where('courseId', '==', courseId)
+      .where('userId', '==', userId)
+      .limit(1) // Bir istifadəçi yalnız bir reytinq verə bilər
+      .get();
+
+    if (userRatingSnapshot.empty) {
+      return res.status(200).json({ hasRated: false, score: 0 });
+    } else {
+      const score = userRatingSnapshot.docs[0].data().score;
+      return res.status(200).json({ hasRated: true, score: score });
+    }
+  } catch (error) {
+    console.error("❌ İstifadəçi reytinqi yüklənmə xətası:", error);
+    res.status(500).json({ message: 'Server xətası baş verdi.' });
+  }
+});
+
 
 app.get("/notifications", auth, async (req, res) => {
   try {
